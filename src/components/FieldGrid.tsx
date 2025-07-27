@@ -54,8 +54,14 @@ export function FieldGrid({ isFullscreen = false }: FieldGridProps) {
     const isMarked = markedZones.has(zoneKey)
     
     if (isMarked) {
+      const currentTeam = currentMatch.currentPossession === currentMatch.teamA.id 
+        ? currentMatch.teamA 
+        : currentMatch.teamB
+      const teamColor = currentTeam?.colors.primary || '#3B82F6'
+      
       return {
-        backgroundColor: 'rgba(59, 130, 246, 0.6)', // blue-500 with opacity
+        backgroundColor: teamColor,
+        opacity: 0.6
       }
     }
     
@@ -82,7 +88,7 @@ export function FieldGrid({ isFullscreen = false }: FieldGridProps) {
       <div 
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{
-          backgroundImage: 'url(/image.png)',
+          backgroundImage: 'url(/campov1.jpg)',
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         }}

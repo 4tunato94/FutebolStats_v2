@@ -297,17 +297,31 @@ export function TacticalSetup({ isOpen, onClose, teamA, teamB }: TacticalSetupPr
 
               {/* Jogadores Titulares */}
               {starterPlayers.map((player) => (
-                <DraggablePlayer
-                  key={player.id}
-                  player={player}
-                  onPositionChange={handlePlayerPositionChange}
-                  teamColor={currentTeam.colors.primary}
-                />
+                <div key={player.id} className="relative">
+                  <DraggablePlayer
+                    player={player}
+                    onPositionChange={handlePlayerPositionChange}
+                    teamColor={currentTeam.colors.primary}
+                  />
+                  {/* Indicador de Capitão */}
+                  {currentCaptain === player.id && (
+                    <div 
+                      className="absolute -top-2 -left-2 w-4 h-4 bg-white border-2 border-gray-800 rounded-full flex items-center justify-center text-xs font-bold"
+                      style={{
+                        left: `${player.fieldPosition?.x || 50}%`,
+                        top: `${(player.fieldPosition?.y || 50) - 8}%`,
+                        transform: 'translate(-50%, -50%)'
+                      }}
+                    >
+                      C
+                    </div>
+                  )}
+                </div>
               ))}
 
               {/* Informações do esquema */}
               <div className="absolute top-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-sm">
-                {currentFormation} - {starterPlayers.length} titulares
+                Esquema tático: {currentFormation}
               </div>
             </div>
           </div>

@@ -21,7 +21,7 @@ const positions = [
   'Zagueiro',
   'Lateral Esquerdo',
   'Lateral Direito',
-  'Meio-campo',
+  'Meio-campista',
   'Atacante'
 ]
 

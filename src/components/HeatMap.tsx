@@ -1,12 +1,22 @@
 import { useMemo } from 'react'
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import { Download } from 'lucide-react'
 import { SavedGame, Match, ZoneStats } from '@/types/futebol'
+import { HeatMapExportDialog } from './HeatMapExportDialog'
 
 interface HeatMapProps {
   game: SavedGame | Match
 }
 
 export function HeatMap({ game }: HeatMapProps) {
+  const [showCounts, setShowCounts] = useState(false)
+  const [hoveredZone, setHoveredZone] = useState<{ row: number; col: number } | null>(null)
+  const [showExportDialog, setShowExportDialog] = useState(false)
+
   const heatMapData = useMemo(() => {
     // Create 5x5 grid
     const grid: ZoneStats[][] = Array(5).fill(null).map(() => 
@@ -44,10 +54,48 @@ export function HeatMap({ game }: HeatMapProps) {
     return 'rgba(255, 0, 0, 0.9)' // Dark red
   }
 
+  const getZoneActions = (row: number, col: number) => {
+    return game.actions.filter(action => 
+      action.zone.row === row && action.zone.col === col
+    ).map(action => ({
+      actionName: action.actionName || (action.type === 'possession' ? 'Posse de Bola' : 'Ação'),
+      teamName: action.teamId === game.teamA.id ? game.teamA.name : game.teamB.name,
+      timestamp: action.timestamp
+    }))
+  }
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
+
   return (
     <Card className="shadow-card">
       <CardHeader>
-        <CardTitle>Mapa de Calor - Posse de Bola</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>Mapa de Calor - Posse de Bola</CardTitle>
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="show-counts"
+                checked={showCounts}
+                onCheckedChange={setShowCounts}
+              />
+              <Label htmlFor="show-counts" className="text-sm">
+                Mostrar contadores
+              </Label>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowExportDialog(true)}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Exportar
+            </Button>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
@@ -86,15 +134,44 @@ export function HeatMap({ game }: HeatMapProps) {
                 row.map((cell, colIndex) => (
                   <div
                     key={`${rowIndex}-${colIndex}`}
-                    className="relative border border-transparent hover:border-white/50 transition-colors"
+                    className="relative border border-transparent hover:border-white/50 transition-colors cursor-pointer"
                     style={{
                       backgroundColor: getHeatColor(cell.total, heatMapData.maxTotal)
                     }}
-                    title={`Zona ${rowIndex + 1}-${colIndex + 1}: ${cell.total} ações (${game.teamA.name}: ${cell.teamA}, ${game.teamB.name}: ${cell.teamB})`}
+                    onMouseEnter={() => setHoveredZone({ row: rowIndex, col: colIndex })}
+                    onMouseLeave={() => setHoveredZone(null)}
                   >
-                    {cell.total > 0 && (
+                    {showCounts && cell.total > 0 && (
                       <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white drop-shadow-lg">
                         {cell.total}
+                      </div>
+                    )}
+                    
+                    {/* Tooltip */}
+                    {hoveredZone?.row === rowIndex && hoveredZone?.col === colIndex && (
+                      <div className="absolute z-10 bg-black/90 text-white p-3 rounded-lg shadow-lg min-w-48 -top-2 left-full ml-2">
+                        <div className="text-sm font-semibold mb-2">
+                          Zona {rowIndex + 1}-{colIndex + 1}
+                        </div>
+                        <div className="text-xs space-y-1 mb-2">
+                          <div>{game.teamA.name}: {cell.teamA} ações</div>
+                          <div>{game.teamB.name}: {cell.teamB} ações</div>
+                          <div className="font-semibold">Total: {cell.total} ações</div>
+                        </div>
+                        {getZoneActions(rowIndex, colIndex).length > 0 && (
+                          <div className="border-t border-white/20 pt-2">
+                            <div className="text-xs font-semibold mb-1">Ações:</div>
+                            <div className="max-h-32 overflow-y-auto space-y-1">
+                              {getZoneActions(rowIndex, colIndex).map((action, idx) => (
+                                <div key={idx} className="text-xs">
+                                  <span className="font-medium">{formatTime(action.timestamp)}</span> - 
+                                  <span className="ml-1">{action.actionName}</span>
+                                  <span className="ml-1 text-gray-300">({action.teamName})</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -124,6 +201,13 @@ export function HeatMap({ game }: HeatMapProps) {
           </div>
         </div>
       </CardContent>
+      
+      {/* Export Dialog */}
+      <HeatMapExportDialog
+        isOpen={showExportDialog}
+        onClose={() => setShowExportDialog(false)}
+        game={game}
+      />
     </Card>
   )
 }

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { useFutebolStore } from '@/stores/futebolStore'
 import { ActionType } from '@/types/futebol'
 import { PlayerSelector } from './PlayerSelector'
+import { MultiplePlayerSelector } from './MultiplePlayerSelector'
 import { cn } from '@/lib/utils'
 
 interface ActionPanelProps {
@@ -13,6 +14,7 @@ interface ActionPanelProps {
 export function ActionPanel({ onClose }: ActionPanelProps) {
   const { currentMatch, actionTypes, addAction } = useFutebolStore()
   const [selectedAction, setSelectedAction] = useState<ActionType | null>(null)
+  const [selectedPlayers, setSelectedPlayers] = useState<string[]>([])
 
   if (!currentMatch) return null
 
@@ -24,6 +26,7 @@ export function ActionPanel({ onClose }: ActionPanelProps) {
 
     if (actionType.requiresPlayer) {
       setSelectedAction(actionType)
+      setSelectedPlayers([])
     } else {
       // Determinar qual time registra a ação (normal ou reversa)
       const targetTeamId = actionType.reverseAction 
@@ -107,6 +110,42 @@ export function ActionPanel({ onClose }: ActionPanelProps) {
     }
   }
 
+  const handleMultiplePlayerAction = (playerIds: string[]) => {
+    if (selectedAction && currentMatch.currentPossession) {
+      // Para substituição, precisamos de exatamente 2 jogadores
+      if (selectedAction.name === 'Substituição' && playerIds.length === 2) {
+        addAction({
+          type: 'specific',
+          teamId: currentMatch.currentPossession,
+          playerIds,
+          zone: { row: 2, col: 2 },
+          actionName: selectedAction.name,
+          substitution: {
+            playerOut: playerIds[0],
+            playerIn: playerIds[1]
+          }
+        })
+      } else {
+        // Para outras ações múltiplas
+        addAction({
+          type: 'specific',
+          teamId: currentMatch.currentPossession,
+          playerIds,
+          zone: { row: 2, col: 2 },
+          actionName: selectedAction.name
+        })
+      }
+      
+      setSelectedAction(null)
+      
+      // Se a ação muda a posse automaticamente, fechar o painel
+      if (selectedAction.changesPossession && onClose) {
+        onClose()
+      }
+      setSelectedPlayers([])
+    }
+  }
+
   // Determinar qual time deve aparecer no seletor de jogadores
   const getTeamForPlayerSelection = () => {
     if (!selectedAction || !currentMatch.currentPossession) return null
@@ -187,12 +226,27 @@ export function ActionPanel({ onClose }: ActionPanelProps) {
       </div>
 
       {/* Seletor de Jogador */}
-      {selectedAction && teamForPlayerSelection && (
+      {selectedAction && selectedAction.requiresPlayer === true && teamForPlayerSelection && (
         <PlayerSelector
           team={teamForPlayerSelection}
           action={selectedAction}
           onSelectPlayer={handlePlayerAction}
           onCancel={() => setSelectedAction(null)}
+        />
+      )}
+      
+      {/* Seletor de Múltiplos Jogadores */}
+      {selectedAction && selectedAction.requiresPlayer === 'multiple' && teamForPlayerSelection && (
+        <MultiplePlayerSelector
+          team={teamForPlayerSelection}
+          action={selectedAction}
+          selectedPlayers={selectedPlayers}
+          onSelectPlayers={setSelectedPlayers}
+          onConfirm={handleMultiplePlayerAction}
+          onCancel={() => {
+            setSelectedAction(null)
+            setSelectedPlayers([])
+          }}
         />
       )}
     </>

@@ -1,17 +1,44 @@
 import { useState } from 'react'
-import { Maximize2, Play, Pause, RotateCcw, Plus } from 'lucide-react'
+import { Maximize2, Play, Pause, RotateCcw, Plus, ChevronLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FieldGrid } from '@/components/FieldGrid'
 import { useFutebolStore } from '@/stores/futebolStore'
 import { IOSActionSheet } from '@/components/IOSActionSheet'
 import { ActionPanel } from '@/components/ActionPanel'
+import { RecentActions } from '@/components/RecentActions'
 import { cn } from '@/lib/utils'
 
 export function IOSFieldView() {
-  const { currentMatch, togglePlayPause, updateTimer } = useFutebolStore()
-  const [showControls, setShowControls] = useState(false)
+  const { currentMatch, togglePlayPause, updateTimer, endMatch } = useFutebolStore()
+  const [showFullscreen, setShowFullscreen] = useState(false)
   const [showActions, setShowActions] = useState(false)
+  const [showRecentActions, setShowRecentActions] = useState(false)
   const [timer, setTimer] = useState(0)
+
+  // Timer functionality
+  React.useEffect(() => {
+    let interval: NodeJS.Timeout | null = null
+    
+    if (currentMatch?.isPlaying) {
+      interval = setInterval(() => {
+        setTimer(prev => {
+          const newTime = prev + 1
+          updateTimer(newTime)
+          return newTime
+        })
+      }, 1000)
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [currentMatch?.isPlaying, updateTimer])
+
+  React.useEffect(() => {
+    if (currentMatch) {
+      setTimer(currentMatch.currentTime)
+    }
+  }, [currentMatch])
 
   if (!currentMatch) return null
 
@@ -24,6 +51,10 @@ export function IOSFieldView() {
   const resetTimer = () => {
     setTimer(0)
     updateTimer(0)
+  }
+
+  if (showFullscreen) {
+    return <FullscreenField onClose={() => setShowFullscreen(false)} />
   }
 
   return (
@@ -62,7 +93,7 @@ export function IOSFieldView() {
           <Button
             variant="outline"
             size="icon"
-            onClick={() => setShowControls(true)}
+            onClick={() => setShowFullscreen(true)}
             className="h-12 w-12 rounded-full touch-target"
           >
             <Maximize2 className="h-5 w-5" />
@@ -71,13 +102,13 @@ export function IOSFieldView() {
       </div>
 
       {/* Possession Buttons */}
-      <div className="px-5 py-4 bg-muted/30">
+      <div className="px-5 py-2 bg-muted/30">
         <div className="grid grid-cols-2 gap-4">
           <Button
             variant="outline"
-            size="lg"
+            size="sm"
             className={cn(
-              "h-20 rounded-2xl transition-all duration-200 flex items-center justify-center touch-target no-select",
+              "h-12 rounded-xl transition-all duration-200 flex items-center justify-center touch-target no-select",
               currentMatch.currentPossession === currentMatch.teamA.id && 
               "ring-2 ring-primary scale-105 bg-primary/10"
             )}
@@ -86,15 +117,15 @@ export function IOSFieldView() {
             <img 
               src={currentMatch.teamA.logoUrl} 
               alt={`${currentMatch.teamA.name} logo`}
-              className="w-12 h-12 object-contain"
+              className="w-8 h-8 object-contain"
             />
           </Button>
           
           <Button
             variant="outline"
-            size="lg"
+            size="sm"
             className={cn(
-              "h-20 rounded-2xl transition-all duration-200 flex items-center justify-center touch-target no-select",
+              "h-12 rounded-xl transition-all duration-200 flex items-center justify-center touch-target no-select",
               currentMatch.currentPossession === currentMatch.teamB.id && 
               "ring-2 ring-primary scale-105 bg-primary/10"
             )}
@@ -103,20 +134,35 @@ export function IOSFieldView() {
             <img 
               src={currentMatch.teamB.logoUrl} 
               alt={`${currentMatch.teamB.name} logo`}
-              className="w-12 h-12 object-contain"
+              className="w-8 h-8 object-contain"
             />
           </Button>
         </div>
       </div>
 
       {/* Field */}
-      <div className="flex-1 p-5">
+      <div className="flex-1 p-5 relative">
         <div className="h-full rounded-2xl overflow-hidden">
           <FieldGrid />
         </div>
         
-        {/* Floating Action Button */}
-        <div className="absolute bottom-6 right-6">
+        {/* Recent Actions Button */}
+        <div className="absolute top-1/2 left-2 transform -translate-y-1/2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setShowRecentActions(!showRecentActions)}
+            className="h-12 w-12 rounded-full shadow-lg touch-target"
+          >
+            <ChevronLeft className={cn(
+              "h-6 w-6 transition-transform duration-200",
+              showRecentActions && "rotate-180"
+            )} />
+          </Button>
+        </div>
+        
+        {/* Floating Actions Button */}
+        <div className="absolute bottom-6 right-6 z-10">
           <Button
             variant="default"
             size="icon"
@@ -126,18 +172,136 @@ export function IOSFieldView() {
             <Plus className="h-8 w-8" />
           </Button>
         </div>
+        
+        {/* Recent Actions Panel */}
+        {showRecentActions && (
+          <div className="absolute left-0 top-0 bottom-0 w-80 bg-background/95 backdrop-blur-sm border-r border-border/50 rounded-r-2xl shadow-lg z-20">
+            <RecentActions />
+          </div>
+        )}
       </div>
 
-      {/* Action Sheet */}
+      {/* Actions Sheet */}
       <IOSActionSheet
-        isOpen={showControls}
-        onClose={() => setShowControls(false)}
-        title="Controles do Jogo"
+        isOpen={showActions}
+        onClose={() => setShowActions(false)}
+        title="Registrar Ação"
       >
         <div className="p-5">
-          <ActionPanel onClose={() => setShowControls(false)} />
+          <ActionPanel onClose={() => setShowActions(false)} />
         </div>
       </IOSActionSheet>
+    </div>
+  )
+}
+
+// Componente para tela cheia
+function FullscreenField({ onClose }: { onClose: () => void }) {
+  const { currentMatch } = useFutebolStore()
+  const [showActions, setShowActions] = useState(false)
+  const [showRecentActions, setShowRecentActions] = useState(false)
+
+  if (!currentMatch) return null
+
+  return (
+    <div className="fixed inset-0 bg-background z-50 flex">
+      {/* Recent Actions Panel */}
+      {showRecentActions && (
+        <div className="w-80 bg-background border-r border-border/50 shadow-lg">
+          <RecentActions />
+        </div>
+      )}
+      
+      {/* Main Field Area */}
+      <div className="flex-1 relative">
+        {/* Header Controls */}
+        <div className="absolute top-4 left-4 right-4 z-10 flex items-center justify-between">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onClose}
+            className="h-12 w-12 rounded-full bg-background/80 backdrop-blur-sm"
+          >
+            <X className="h-6 w-6" />
+          </Button>
+          
+          <div className="flex items-center space-x-4 bg-background/80 backdrop-blur-sm rounded-full px-6 py-3">
+            <div className="text-2xl font-mono font-bold">
+              {formatTime(currentMatch.currentTime)}
+            </div>
+          </div>
+          
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setShowRecentActions(!showRecentActions)}
+            className="h-12 w-12 rounded-full bg-background/80 backdrop-blur-sm"
+          >
+            <ChevronLeft className={cn(
+              "h-6 w-6 transition-transform duration-200",
+              showRecentActions && "rotate-180"
+            )} />
+          </Button>
+        </div>
+        
+        {/* Possession Buttons */}
+        <div className="absolute top-20 left-4 right-4 z-10">
+          <div className="flex justify-center space-x-4">
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                "h-10 px-4 rounded-xl bg-background/80 backdrop-blur-sm",
+                currentMatch.currentPossession === currentMatch.teamA.id && 
+                "ring-2 ring-primary bg-primary/20"
+              )}
+              onClick={() => useFutebolStore.getState().setPossession(currentMatch.teamA.id)}
+            >
+              <img 
+                src={currentMatch.teamA.logoUrl} 
+                alt={`${currentMatch.teamA.name} logo`}
+                className="w-6 h-6 object-contain mr-2"
+              />
+              {currentMatch.teamA.name}
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                "h-10 px-4 rounded-xl bg-background/80 backdrop-blur-sm",
+                currentMatch.currentPossession === currentMatch.teamB.id && 
+                "ring-2 ring-primary bg-primary/20"
+              )}
+              onClick={() => useFutebolStore.getState().setPossession(currentMatch.teamB.id)}
+            >
+              <img 
+                src={currentMatch.teamB.logoUrl} 
+                alt={`${currentMatch.teamB.name} logo`}
+                className="w-6 h-6 object-contain mr-2"
+              />
+              {currentMatch.teamB.name}
+            </Button>
+          </div>
+        </div>
+        
+        {/* Field */}
+        <div className="absolute inset-0 pt-32 pb-20 px-4">
+          <FieldGrid isFullscreen={true} />
+        </div>
+        
+        {/* Actions Button */}
+        <div className="absolute bottom-6 right-6 z-10">
+          <Button
+            variant="default"
+            size="icon"
+            onClick={() => setShowActions(true)}
+            className="h-16 w-16 rounded-full shadow-lg"
+          >
+            <Plus className="h-8 w-8" />
+          </Button>
+        </div>
+      </div>
       
       {/* Actions Sheet */}
       <IOSActionSheet

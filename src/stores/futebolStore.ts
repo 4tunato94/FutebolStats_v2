@@ -37,6 +37,10 @@ interface FutebolState {
   updateActionType: (actionTypeId: string, updates: Partial<ActionType>) => void
   deleteActionType: (actionTypeId: string) => void
   
+  // Current match actions
+  updateCurrentMatchAction: (actionId: string, updates: Partial<GameAction>) => void
+  deleteCurrentMatchAction: (actionId: string) => void
+  
   // Stats
   getGameStats: (game: SavedGame | Match) => GameStats
   
@@ -58,6 +62,7 @@ const defaultActionTypes: ActionType[] = [
   { id: '12', name: 'Gol Contra', requiresPlayer: true, icon: '😵', reverseAction: true },
   { id: '13', name: 'Mão na Bola', requiresPlayer: true, icon: '✋' },
   { id: '14', name: 'Falta Sofrida', requiresPlayer: false, icon: '🚑' },
+  { id: '15', name: 'Substituição', requiresPlayer: 'multiple', icon: '🔄', requiresMultiplePlayers: true },
 ]
 
 export const useFutebolStore = create<FutebolState>()(
@@ -318,6 +323,22 @@ export const useFutebolStore = create<FutebolState>()(
       
       deleteActionType: (actionTypeId) => set((state) => ({
         actionTypes: state.actionTypes.filter(at => at.id !== actionTypeId)
+      })),
+      
+      updateCurrentMatchAction: (actionId, updates) => set((state) => ({
+        currentMatch: state.currentMatch ? {
+          ...state.currentMatch,
+          actions: state.currentMatch.actions.map(action =>
+            action.id === actionId ? { ...action, ...updates } : action
+          )
+        } : null
+      })),
+      
+      deleteCurrentMatchAction: (actionId) => set((state) => ({
+        currentMatch: state.currentMatch ? {
+          ...state.currentMatch,
+          actions: state.currentMatch.actions.filter(action => action.id !== actionId)
+        } : null
       })),
       
       getGameStats: (game) => {
